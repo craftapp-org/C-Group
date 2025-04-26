@@ -78,7 +78,7 @@ jobs:
             sudo chmod +x devops/cgroup-setup.sh
             sudo chmod 644 frontend/.env
             sudo chmod 644 backend/.env
-            ./devops/cgroup-setup.sh "${{ env.PROJECT_NAME }}" 2048 2G
+            ./devops/cgroup-setup.sh "${{ env.PROJECT_NAME }}" "200000 100000" "2147483648"
             # Clean up and deploy with explicit env file
             docker-compose --env-file backend/.env down || true
             docker system prune -f
