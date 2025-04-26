@@ -83,15 +83,34 @@ jobs:
             docker-compose --env-file backend/.env down || true
             docker system prune -f
             # Start Docker daemon in the cgroup 
-            sudo systemctl stop docker
-            sudo cgexec -g cpu,memory:${{ env.PROJECT_NAME }} /usr/bin/dockerd &
-            sleep 5  # Wait for Docker to start
+            sudo systemctl stop docker.socket docker.service
+            sudo pkill -9 dockerd || true
+            sleep 2  # Ensure Docker is fully stopped
             
-            # Start containers (they'll inherit the cgroup)
+            # Start Docker in cgroup (foreground)
+            sudo cgexec -g cpu,memory:${{ env.PROJECT_NAME }} /usr/bin/dockerd > /tmp/dockerd.log 2>&1 &
+            DOCKERD_PID=$!
+            sleep 10  # Increased wait time
+            
+            # Verify Docker is running
+            if ! docker info >/dev/null 2>&1; then
+              echo "Docker failed to start. Logs:"
+              cat /tmp/dockerd.log
+              exit 1
+            fi
+            
+            # Start containers
             docker-compose --env-file backend/.env up -d --build
+            sleep 5  # Wait for containers to initialize
             
-            # Verify
-            docker ps -q | xargs docker inspect --format '{{.State.Pid}}' | while read pid; do
+            # Verify and assign PIDs
+            docker ps -q | xargs docker inspect --format '{{.State.Pid}} {{.Name}}' | while read pid name; do
+              echo "Assigning $name (PID: $pid) to cgroup"
               echo $pid | sudo tee /sys/fs/cgroup/${{ env.PROJECT_NAME }}/cgroup.procs
             done
+            
+            # Final verification
+            echo "Current cgroup processes:"
             cat /sys/fs/cgroup/${{ env.PROJECT_NAME }}/cgroup.procs
+            echo "Container stats:"
+            docker stats --no-stream
