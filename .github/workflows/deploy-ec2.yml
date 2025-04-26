@@ -82,5 +82,16 @@ jobs:
             # Clean up and deploy with explicit env file
             docker-compose --env-file backend/.env down || true
             docker system prune -f
-            sudo cgexec -g cpu,memory:${{ env.PROJECT_NAME }} docker-compose --env-file backend/.env up -d --build
-            sleep 10
+            # Start Docker daemon in the cgroup 
+            sudo systemctl stop docker
+            sudo cgexec -g cpu,memory:${{ env.PROJECT_NAME }} /usr/bin/dockerd &
+            sleep 5  # Wait for Docker to start
+            
+            # Start containers (they'll inherit the cgroup)
+            docker-compose --env-file backend/.env up -d --build
+            
+            # Verify
+            docker ps -q | xargs docker inspect --format '{{.State.Pid}}' | while read pid; do
+              echo $pid | sudo tee /sys/fs/cgroup/${{ env.PROJECT_NAME }}/cgroup.procs
+            done
+            cat /sys/fs/cgroup/${{ env.PROJECT_NAME }}/cgroup.procs
