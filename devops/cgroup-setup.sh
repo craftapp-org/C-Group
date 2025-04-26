@@ -10,8 +10,8 @@ echo "$CPU_LIMIT" | sudo tee /sys/fs/cgroup/$PROJECT_NAME/cpu.max
 echo "$MEMORY_LIMIT" | sudo tee /sys/fs/cgroup/$PROJECT_NAME/memory.max
 
 # Assign containers ONLY from the specified compose project
-docker ps --filter "label=com.docker.compose.project=$PROJECT_NAME" -q | \
-  xargs docker inspect --format '{{.State.Pid}}' | \
-  while read pid; do
-    echo $pid | sudo tee /sys/fs/cgroup/$PROJECT_NAME/cgroup.procs
-  done
+# docker ps --filter "label=com.docker.compose.project=$PROJECT_NAME" -q | \
+#   xargs docker inspect --format '{{.State.Pid}}' | \
+#   while read pid; do
+#     echo $pid | sudo tee /sys/fs/cgroup/$PROJECT_NAME/cgroup.procs
+#   done
