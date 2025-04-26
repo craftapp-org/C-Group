@@ -30,6 +30,8 @@ services:
         reservations:
           cpus: "0.5"
           memory: 1G
+    labels:
+      - "com.docker.compose.project.resource-control=true"
           
   backend:
     networks:
@@ -58,6 +60,8 @@ services:
         reservations:
           cpus: "0.5"
           memory: 1G
+      labels:
+      - "com.docker.compose.project.resource-control=true"
 
   frontend:
     networks:
@@ -79,6 +83,8 @@ services:
         reservations:
           cpus: "0.3"
           memory: 512M
+    labels:
+      - "com.docker.compose.project.resource-control=true"
 
 volumes:
   postgres_data:
@@ -89,6 +95,8 @@ volumes:
       o: bind
     # labels:
     #   - "com.docker.compose.volume.size=10GB"
+    labels:
+      - "com.docker.compose.project.resource-control=true"
 networks:
   app-network:
     driver: bridge
