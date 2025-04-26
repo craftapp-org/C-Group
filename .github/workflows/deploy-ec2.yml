@@ -78,7 +78,8 @@ jobs:
             sudo chmod +x devops/cgroup-setup.sh
             sudo chmod 644 frontend/.env
             sudo chmod 644 backend/.env
-            ./devops/cgroup-setup.sh "${{ env.PROJECT_NAME }}" "200000 100000" "2147483648"
+            # ./devops/cgroup-setup.sh "${{ env.PROJECT_NAME }}" "200000 100000" "2147483648"
+            ./devops/cgroup-setup.sh "${{ env.PROJECT_NAME }}" "100000 50000" "268435456"
             # Clean up and deploy with explicit env file
             docker-compose --env-file backend/.env down || true
             docker system prune -f
@@ -121,26 +122,20 @@ jobs:
       
             # 5. Proper PID assignment - METHOD 1 (Recommended)
             # Assign only the container's main process
-            for container in $(docker ps --format '{{.Names}}'); do
-              pid=$(docker inspect --format '{{.State.Pid}}' $container)
-              echo "Assigning $container (PID: $pid) to cgroup"
-              # Move the entire process tree
-              sudo sh -c "echo $pid > /sys/fs/cgroup/${{ env.PROJECT_NAME }}/cgroup.procs"
-              # Verify
-              if ! grep -q $pid /sys/fs/cgroup/${{ env.PROJECT_NAME }}/cgroup.procs; then
-                echo "Failed to assign PID $pid for $container"
+                  # Assign container PIDs to cgroup (simplified method)
+            for container in c-group_frontend_1 c-group_backend_1 c-group_postgres_1; do
+              if docker ps | grep -q $container; then
+                pid=$(docker inspect -f '{{.State.Pid}}' $container)
+                echo "Assigning $container (PID: $pid) to cgroup"
+                echo $pid | sudo tee /sys/fs/cgroup/${{ env.PROJECT_NAME }}/cgroup.procs
+              else
+                echo "Container $container not found!"
                 exit 1
               fi
             done
-      
-            # 6. Clean up any stray PIDs (METHOD 2 - Alternative)
-            # Get the correct container PIDs
-            container_pids=$(docker ps -q | xargs docker inspect --format '{{.State.Pid}}')
-            # Filter cgroup.procs to only contain our containers
-            sudo sh -c "comm -23 <(sort /sys/fs/cgroup/${{ env.PROJECT_NAME }}/cgroup.procs) <(echo \"$container_pids\" | sort) | while read pid; do echo $pid > /sys/fs/cgroup/cgroup.procs; done"
-      
-            # 7. Final verification
-            echo "🔍 Active PIDs in cgroup:"
-            sudo cat /sys/fs/cgroup/${{ env.PROJECT_NAME }}/cgroup.procs
-            echo "📊 Container stats:"
-            docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"
+            
+            # Final verification
+            echo "Current cgroup processes:"
+            cat /sys/fs/cgroup/${{ env.PROJECT_NAME }}/cgroup.procs
+            echo "Container stats:"
+            docker stats --no-stream
